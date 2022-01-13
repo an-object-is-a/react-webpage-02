@@ -19,7 +19,7 @@ function Home() {
         <div>
             <div className="section1">
                 <img src="./images/background-section1.jpg" alt="" className="background_image" />
-                <div className="greeting">Sinclaire<br />Market</div>
+                <div className="greeting">Sinclaire<br />Market.</div>
             </div>
 
             <div ref={galleryRef} className="gallery">
