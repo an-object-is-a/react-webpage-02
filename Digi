@@ -1,0 +1,1024 @@
+export enum MedicalAidType {
+    AcumenHealth = 'Acumen Health',
+    AffinityHealth = 'Affinity Health',
+    AfrocentricPrimaryHealthInsurance = 'Afrocentric Primary Health Insurance',
+    AllianceMidmedMedicalScheme = 'Alliance-Midmed Medical Scheme',
+    AngloAms = 'Anglo (AMS)',
+    AnglovaalGroup = 'Anglovaal Group',
+    AstrioMedicalInsurance = 'Astrio Medical Insurance',
+    BlackbirdGroup = 'BLACKBIRD GROUP',
+    BMW = 'BMW',
+    BpMedicalAidScheme = 'BP Medical Aid Scheme',
+    BankMed = 'BankMed',
+    BestMed = 'BestMed',
+    Bonitas = 'Bonitas',
+    BotsogoHealthPlan = 'Botsogo Health Plan'export enum MedicalAidType {
+    AcumenHealth = 'Acumen Health',
+    AffinityHealth = 'Affinity Health',
+    AfrocentricPrimaryHealthInsurance = 'Afrocentric Primary Health Insurance',
+    AllianceMidmedMedicalScheme = 'Alliance-Midmed Medical Scheme',
+    AngloAms = 'Anglo (AMS)',
+    AnglovaalGroup = 'Anglovaal Group',
+    AstrioMedicalInsurance = 'Astrio Medical Insurance',
+    BlackbirdGroup = 'BLACKBIRD GROUP',
+    BMW = 'BMW',
+    BpMedicalAidScheme = 'BP Medical Aid Scheme',
+    BankMed = 'BankMed',
+    BestMed = 'BestMed',
+    Bonitas = 'Bonitas',
+    BotsogoHealthPlan = 'Botsogo Health Plan'
+}
+import React, { useState, useEffect, useRef } from 'react';
+import { Alert, FlatList, LogBox, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ScrollView } from 'react-native-gesture-handler';
+import { NeutralGrey, PrimaryScooter, White } from '../../../Colors';
+import RoundedButton from '../../../components/button/RoundedButton';
+import SelectInputFormControl, { SelectInputFormControlRef } from '../../../components/input/SelectInputFormControl';
+import TextInputFormControl, { TextInputFormControlRef } from '../../../components/input/TextInputFormControl';
+import BodyButton from '../../../components/text/BodyButton';
+import BodyRegular from '../../../components/text/BodyRegular';
+import { MedicalAidRelationshipType } from '../../../enums/MedicalAidRelationshipType';
+import { SelectFieldModel } from '../../../models/SelectFieldModel';
+import { Strings } from '../../../Strings';
+import useMediaController from '../../../hooks/media.controller.hook';
+import { AccountNavigationProp, AccountNavigationRouteProp, AccountRoutes as Routes } from './AccountStackParams';
+import { StackHeaderProps } from '@react-navigation/stack';
+import CommonStackHeader from '../../../components/CommonStackHeader';
+import BodySmall from '../../../components/text/BodySmall';
+import { medicalAidService } from '../../../services/MedicalAidService';
+import { MedialAidItemModel } from '../../../models/MedialAidItemModel';
+import NumberInputFormControl from '../../../components/input/NumberInputFormControl';
+import MedicalAidCompletePopup from '../account/NewMedicalAidAccountCompletePopup'
+import { MedicalAidType } from '../../../enums/MedicalAidType';
+import { debounceTime, Subject } from 'rxjs';
+import { MedicalAidPlanModel } from '../../../models/MedicalAidPlanModel';
+import { UploadDocumentInfoModel } from '../../../models/UploadDocumentInfoModel';
+import { mediaService } from '../../../services/MediaService';
+import { commonFileUpload } from '../../../domain/CommonFileUpload';
+import { SupportedMediaType } from '../../../enums/SupportedMediaType';
+import { imageService } from '../../../services/ImageService';
+import { Buffer } from 'buffer';
+
+
+interface Props {
+    navigation: AccountNavigationProp<Routes.AddMedicalAidAccount>,
+    route: AccountNavigationRouteProp<Routes.AddMedicalAidAccount>
+}
+
+export default function AddMedicalAidAccount(props: Props) {
+
+    const hooks = useAddMedicalAidAccountHooks(props);
+
+    return <View>
+        <ScrollView style={styles.container}
+            onScroll={() => hooks.setIsMedicalAidOptionsVisible(false)}>
+            <MedicalAidCompletePopup
+                visible={hooks.showNewMedicalAidAccountComplete}
+                onGoBackButton={() => {
+                    hooks.setShowNewMedicalAidAccountComplete(false);
+                    props.navigation.navigate(Routes.MedicalAidInfomation)
+
+                }}
+            />
+            <View style={styles.containerChild}>
+                <View style={Object.assign({}, styles.formGroup, styles.medicalAidOptionsFlatList, { position: 'relative', zIndex: 3 })}>
+                    <BodyRegular style={styles.fieldLabel}>Medical Aid Name *</BodyRegular>
+                    <TextInputFormControl
+                        placeholder={'Medical Aid Name'}
+                        isRequired={true}
+                        inputFieldStyle={styles.textInput}
+                        useShadow={false}
+                        ref={hooks.medicalAidNameControlRef}
+                        onBlur={() => {
+                            hooks.setMedicalAidScheme(hooks.selectedMedicalAidScheme?.name ?? "");
+                            hooks.setIsMedicalAidSchemeOptionsVisible(false);
+                        }}
+                        defaultValue={hooks.medicalAidScheme}
+                        onValueChange={value => hooks.onMedicalAidSchemeTermChange(value)}
+                    />
+
+                    {hooks.isMedicalAidSchemeOptionsVisible &&
+                        <View style={[styles.medicalAidOptionsContainer]}>
+                            <FlatList style={styles.medicalAidOptionsFlatList} data={hooks.medicalAidSchemesFiltered} scrollEnabled={true}
+                                renderItem={(itemInfo) => {
+
+                                    return <TouchableOpacity onPress={async () => {
+                                        hooks.setMedicalAidScheme(itemInfo.item.name);
+                                        hooks.setSelectedMedicalAidScheme(itemInfo.item);
+                                        hooks.setIsMedicalAidSchemeOptionsVisible(false);
+                                    }}>
+                                        <BodySmall style={{ padding: 16 }}>{itemInfo.item.name}</BodySmall>
+                                    </TouchableOpacity>
+                                }}>
+                            </FlatList>
+                        </View>}
+
+                </View>
+                <View style={Object.assign({}, styles.formGroup, styles.medicalAidOptionsFlatList, { position: 'relative', zIndex: 2 })}>
+                    <BodyRegular style={styles.fieldLabel}>Medical Aid Plan *</BodyRegular>
+                    <TextInputFormControl
+                        disabled={hooks.selectedMedicalAidScheme == undefined}
+                        isRequired={true}
+                        inputFieldStyle={styles.textInput}
+                        useShadow={false}
+                        ref={hooks.medicalAidPlanControlRef}
+                        onFocus={() => hooks.setIsMedicalAidPlanOptionsVisible(true)}
+                        onBlur={() => {
+                            hooks.setMedicalAidPlan(hooks.selectedMedicalAidPlan?.name ?? "");
+                            hooks.setIsMedicalAidPlanOptionsVisible(false);
+                        }}
+                        defaultValue={hooks.medicalAidPlan}
+                        onValueChange={value => hooks.onMedicalAidPlanTermChange(value)}
+                    />
+
+                    {hooks.isMedicalAidPlanOptionsVisible &&
+                        <View style={[styles.medicalAidOptionsContainer]}>
+                            <FlatList style={styles.medicalAidOptionsFlatList} data={hooks.medicalAidPlansFiltered} scrollEnabled={true}
+                                renderItem={(itemInfo) => {
+                                    return <TouchableOpacity onPress={async () => {
+                                        hooks.setMedicalAidPlan(itemInfo.item.name);
+                                        hooks.setSelectedMedicalAidPlan(itemInfo.item);
+                                        hooks.setIsMedicalAidPlanOptionsVisible(false);
+                                    }}>
+                                        <BodySmall style={{ padding: 16 }}>{itemInfo.item.name}</BodySmall>
+                                    </TouchableOpacity>
+                                }}>
+                            </FlatList>
+                        </View>}
+                </View>
+                <View style={Object.assign({}, styles.formGroup, { position: 'relative', zIndex: 1 })}>
+                    <BodyRegular style={styles.fieldLabel}>Medical Aid Number *</BodyRegular>
+                    <TextInputFormControl
+                        isRequired={true}
+                        inputFieldStyle={styles.textInput}
+                        useShadow={false}
+                        placeholder={'Enter your medical aid number'}
+                        keyboardType='numeric'
+                        ref={hooks.medicalAidNumberControlRef}
+                    />
+                </View>
+                <View style={Object.assign({}, styles.formGroup, { position: 'relative', zIndex: 1 })}>
+                    <BodyRegular style={styles.fieldLabel}>Relationship *</BodyRegular>
+                    <SelectInputFormControl
+                        isRequired={true} inputFieldStyle={styles.textInput}
+                        useShadow={false}
+                        options={hooks.medicalAidRelationshipOptions}
+                        ref={hooks.meicalAidRelationshipControlRef}
+                    />
+                </View>
+                <View style={styles.formGroup}>
+                    <BodyRegular style={styles.fieldLabel}>Dependant Code *</BodyRegular>
+                    <NumberInputFormControl
+                        keyboardType='numeric'
+                        isRequired={true}
+                        inputFieldStyle={styles.textInput}
+                        useShadow={false}
+                        placeholder={'Enter your dependant code'}
+                        ref={hooks.dependentControlRef}
+                    />
+                </View>
+                <View style={{ marginTop: 7 }}>
+                    <TouchableOpacity style={styles.medicalAidCardImageUpload}
+                        onPress={hooks.onUploadMedicalAidImagePress}>
+                        <BodyButton style={styles.uploadButtonText}>{!hooks.medicalAidCardImageUri.substring(hooks.medicalAidCardImageUri.lastIndexOf("/")).replace('/', '') ? 'Image of medical aid card' : hooks.medicalAidCardImageUri.substring(hooks.medicalAidCardImageUri.lastIndexOf("/")).replace('/', '')}</BodyButton>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={styles.medicalAidCardImageUpload}
+                        onPress={hooks.onUploadIdentityDocumentPress}
+                    >
+                        <BodyButton style={styles.uploadButtonText}>{!hooks.identityDocumentImageUri.substring(hooks.identityDocumentImageUri.lastIndexOf("/")).replace('/', '') ? 'Upload Image of ID card' : hooks.identityDocumentImageUri.substring(hooks.identityDocumentImageUri.lastIndexOf("/")).replace('/', '')}</BodyButton>
+                    </TouchableOpacity>
+                </View>
+            </View>
+            <RoundedButton
+                style={styles.addMedicalAidAccountbutton}
+                titleColor={White}
+                title={Strings.Add_new_medical_aid_account}
+                onPress={hooks.onSetupMedicalAidPress}
+            ></RoundedButton>
+        </ScrollView>
+    </View>
+}
+
+interface FileContext {
+    fileUri: string,
+    fileBase64?: string
+}
+interface Props {
+    navigation: AccountNavigationProp<Routes.AddMedicalAidAccount>;
+    route: AccountNavigationRouteProp<Routes.AddMedicalAidAccount>;
+}
+
+function useAddMedicalAidAccountHooks(props: Props) {
+
+    const configureNavigationBar = (navigation: AccountNavigationProp<Routes.AddMedicalAidAccount>) => {
+        navigation.setOptions({
+            title: Strings.Add_new_medical_aid,
+            header: (stackHeaderProps: StackHeaderProps) => {
+                return <CommonStackHeader {...stackHeaderProps}
+                    style={Object.assign({}, styles.navigationBar, stackHeaderProps.options.headerStyle)}
+                    onBackButtonPress={() => {
+                        if (stackHeaderProps.navigation.canGoBack()) {
+                            stackHeaderProps.navigation.goBack();
+                        } else {
+                            // navigation.goBack();
+                        }
+                    }}
+                />
+            }
+        });
+    };
+
+    useEffect(() => {
+        const unsubscribe = props.navigation.addListener('focus', () => {
+            configureNavigationBar(props.navigation);
+        });
+
+        return unsubscribe;
+    });
+
+    const [medicalAidRelationshipOptions, _] = useState<SelectFieldModel[]>(getMedicalAidRelationshipOptions());
+    const { openSupportedMediaOptionsAsync, openImagePickerAsync, openCameraAsync } = useMediaController();
+    const [medicalAidCardFileContext, setMedicalAidCardFileContext] = useState<FileContext>({ fileUri: "" });
+    const [identityDocumentFileContext, setIdentityDocumentFileContext] = useState<FileContext>({ fileUri: "" });
+    const [isMedicalAidOptionsVisible, setIsMedicalAidOptionsVisible] = useState<boolean>(false);
+    const [isMedicalAidRelationshipOptionsVisible, setIsMedicalAidRelationshipOptionsVisible] = useState<boolean>(false);
+    const [medicalAidScheme, setMedicalAidScheme] = useState<string | undefined>();
+    const [selectedMedicalAidScheme, setSelectedMedicalAidScheme] = useState<MedialAidItemModel | undefined>();
+    const [medicalAidPlan, setMedicalAidPlan] = useState<string | undefined>();
+    const [isMedicalAidSchemeOptionsVisible, setIsMedicalAidSchemeOptionsVisible] = useState<boolean>(false);
+    const [medicalAidSchemesFiltered, setMedicalAidSchemesFiltered] = useState<MedialAidItemModel[]>([]);
+    const [isMedicalAidPlanOptionsVisible, setIsMedicalAidPlanOptionsVisible] = useState<boolean>(false);
+    const [medicalAidPlansFiltered, setMedicalAidPlansFiltered] = useState<MedicalAidPlanModel[]>([]);
+    const [medicalAidSchemes, setMedicalAidSchemes] = useState<MedialAidItemModel[]>();
+    const [selectedMedicalAidPlan, setSelectedMedicalAidPlan] = useState<MedicalAidPlanModel | undefined>();
+    const [medicalAidName, setMedicalAidName,] = useState<string>();
+    const [showNewMedicalAidAccountComplete, setShowNewMedicalAidAccountComplete] = useState<Boolean>(false);
+    const [medicalAidNameOptions, setMedicalAidNameOptions] = useState<MedialAidItemModel[]>([]);
+
+    const medicalAidNameControlRef = useRef<TextInputFormControlRef>(null);
+    const medicalAidPlanControlRef = useRef<TextInputFormControlRef>(null);
+    const medicalAidNumberControlRef = useRef<TextInputFormControlRef>(null);
+    const meicalAidRelationshipControlRef = useRef<SelectInputFormControlRef>(null);
+    const dependentControlRef = useRef<TextInputFormControlRef>(null);
+
+    const isFormValid = (): boolean => {
+        var _isFormValid = true;
+        if (!medicalAidNameControlRef.current?.validate()) _isFormValid = false;
+        if (!medicalAidPlanControlRef.current?.validate()) _isFormValid = false;
+        if (!medicalAidNumberControlRef.current?.validate()) _isFormValid = false;
+        if (!meicalAidRelationshipControlRef.current?.validate()) _isFormValid = false;
+        if (!dependentControlRef.current?.validate()) _isFormValid = false;
+        if (isMedicalAidCardImageEmpty() || isIdentityDocumentImageEmpty()) _isFormValid = false;
+        return _isFormValid;
+    }
+
+    const onMedicalAidSchemeTermChangeHandler = useState(new Subject<string | undefined>())[0];
+    const onMedicalAidPlanTermChangeHandler = useState(new Subject<{ searchTerm: string, selectedMedicalAidScheme: MedialAidItemModel } | undefined>())[0];
+
+    const onMedicalAidSchemeTermChange = (text: string | undefined) => {
+        setMedicalAidScheme(text);
+        onMedicalAidSchemeTermChangeHandler.next(text);
+    };
+
+    const onMedicalAidPlanTermChange = (text: string | undefined) => {
+        if (!selectedMedicalAidScheme) return;
+
+        setMedicalAidPlan(text);
+        onMedicalAidPlanTermChangeHandler.next({
+            searchTerm: text ?? "",
+            selectedMedicalAidScheme: selectedMedicalAidScheme
+        });
+    };
+
+    useEffect(() => {
+        const medicalAidSchemeTermChangeHandlerSubscription = onMedicalAidSchemeTermChangeHandler.asObservable().pipe(
+            debounceTime(300)
+        ).subscribe(async value => {
+            if (value == undefined) return;
+
+            fetchMedicalAidSchemesIfNeededAsync().then(_medicalAidSchemes => {
+                setIsMedicalAidSchemeOptionsVisible(true);
+                setMedicalAidSchemesFiltered((_medicalAidSchemes ?? []).filter(medicalAidScheme => medicalAidScheme.name.toLowerCase().includes(value.toLowerCase())));
+            });
+        });
+
+        const medicalAidPlanTermChangeHandler = onMedicalAidPlanTermChangeHandler.asObservable().pipe(
+            debounceTime(300)
+        ).subscribe(async value => {
+
+            setIsMedicalAidPlanOptionsVisible(true);
+            setMedicalAidPlansFiltered((value?.selectedMedicalAidScheme?.plans ?? []).filter(medicalAidPlan => medicalAidPlan.name.toLowerCase().includes(value?.searchTerm.toLowerCase() ?? "")));
+        });
+
+        LogBox.ignoreLogs(['VirtualizedLists should never be nested']);
+
+        return () => {
+            medicalAidSchemeTermChangeHandlerSubscription.unsubscribe();
+            medicalAidPlanTermChangeHandler.unsubscribe();
+        };
+    }, []);
+
+    const fetchMedicalAidSchemesIfNeededAsync = async () => {
+        if (medicalAidSchemes === undefined) {
+            const response = await medicalAidService.fetchMedicalAidSchemesAsync();
+            setMedicalAidSchemes(response.items);
+
+            return Promise.resolve(response.items);
+        }
+
+        return Promise.resolve(medicalAidSchemes);
+    }
+
+    function getMedicalAidOptions(): SelectFieldModel[] {
+        return Object.values(MedicalAidType).map(medicalAidType => { return { label: medicalAidType.toString(), value: medicalAidType.toString() } })
+    }
+
+    const onUploadMedicalAidImagePress = () => {
+        openSupportedMediaOptionsAsync({
+            onTakePhotoPress: () => { openCameraAsync((uri, base64) => setMedicalAidCardFileContext({ fileUri: uri, fileBase64: base64 })) },
+            onChoosePhotoPress: () => { openImagePickerAsync((uri, base64) => setMedicalAidCardFileContext({ fileUri: uri, fileBase64: base64 })) }
+        });
+    }
+
+    const onUploadIdentityDocumentPress = () => {
+        openSupportedMediaOptionsAsync({
+            onTakePhotoPress: () => { openCameraAsync((uri, base64) => setIdentityDocumentFileContext({ fileUri: uri, fileBase64: base64 })) },
+            onChoosePhotoPress: () => { openImagePickerAsync((uri, base64) => setIdentityDocumentFileContext({ fileUri: uri, fileBase64: base64 })) }
+        });
+    }
+
+    async function onSetupMedicalAidPress() {
+        if (!isFormValid()) return;
+
+        const medicalAidCardUploadResponse = await uploadMedicalAidCardDocumentAsync().catch(e => {
+            console.error(e);
+            return null;
+        });
+
+        if (medicalAidCardUploadResponse === null) return;
+
+        const medicalAidId = selectedMedicalAidScheme!.medicalAidId;
+        const medicalAidPlanId = selectedMedicalAidPlan!.medicalAidPlanId;
+        const medicalAidNumber = medicalAidNumberControlRef.current?.getValue()!;
+        const relationship = meicalAidRelationshipControlRef.current?.getValue()!;
+        const dependentCode = dependentControlRef.current?.getValue()!;
+
+        const medicalAidCardFileName = medicalAidCardUploadResponse.document.fileName;
+        const medicalAidCardS3Bucket = medicalAidCardUploadResponse.document.bucket;
+        const medicalAidCardS3ObjectKey = medicalAidCardUploadResponse.document.key;
+
+        medicalAidService.createMedicalAidInfo(medicalAidId, medicalAidPlanId, medicalAidNumber, relationship, parseInt(dependentCode),
+            medicalAidCardFileName,
+            medicalAidCardS3Bucket,
+            medicalAidCardS3ObjectKey).then(() => setShowNewMedicalAidAccountComplete(true)).catch(e => {
+                Alert.alert('An unhandled error occured.');
+                console.error(e)
+                console.log("medicalAidServiceSection")
+            })
+    }
+
+    const uploadMedicalAidCardDocumentAsync = async (): Promise<UploadDocumentInfoModel> => {
+        const medicalAidCardFile = await commonFileUpload.makeCommonFileAsync(medicalAidCardFileContext.fileUri, medicalAidCardFileContext.fileBase64);
+
+        const medicalAidCardUploadDocumentInfo = await mediaService.makeUploadDocumentInfoRequestAsync<UploadDocumentInfoModel>(
+            medicalAidCardFile.blob.data.name,
+            medicalAidCardFile.contentType,
+            SupportedMediaType.MedicalAid);
+
+        const buffer = Buffer.from(medicalAidCardFileContext.fileBase64!, 'base64');
+
+        await imageService.uploadS3ImageAsync(medicalAidCardUploadDocumentInfo.uploadUrl, medicalAidCardFile.contentType, buffer.buffer);
+
+        return Promise.resolve(medicalAidCardUploadDocumentInfo);
+    }
+
+    useEffect(() => {
+        setMedicalAidPlansFiltered(selectedMedicalAidScheme?.plans ?? []);
+        setSelectedMedicalAidPlan(undefined);
+        setMedicalAidPlan("");
+    }, [selectedMedicalAidScheme]);
+
+    const filterData = (query: any) => {
+        const filteredData = medicalAidNameOptions.filter((item) =>
+            item.name.toLowerCase().includes(query.toLowerCase())
+        );
+        setMedicalAidNameOptions(filteredData)
+    };
+
+    function getMedicalAidRelationshipOptions(): SelectFieldModel[] {
+        return Object.values(MedicalAidRelationshipType).map(type => { return { label: type.toString(), value: type.toString() } })
+    };
+
+    const onUploadIdentityDocumentButtonPress = () => {
+        openSupportedMediaOptionsAsync({
+            onTakePhotoPress: () => { openCameraAsync((uri, base64) => setIdentityDocumentFileContext({ fileUri: uri, fileBase64: base64 })) },
+            onChoosePhotoPress: () => { openImagePickerAsync((uri, base64) => setIdentityDocumentFileContext({ fileUri: uri, fileBase64: base64 })) }
+        });
+    };
+
+    const isIdentityDocumentImageEmpty = (): boolean => {
+        return identityDocumentFileContext.fileUri === "";
+    }
+
+    const onUploadMedicalAidImageButtonPress = () => {
+        openSupportedMediaOptionsAsync({
+            onTakePhotoPress: () => { openCameraAsync((uri, base64) => setMedicalAidCardFileContext({ fileUri: uri, fileBase64: base64 })) },
+            onChoosePhotoPress: () => { openImagePickerAsync((uri, base64) => setMedicalAidCardFileContext({ fileUri: uri, fileBase64: base64 })) }
+        });
+    };
+
+    const isMedicalAidCardImageEmpty = (): boolean => {
+        return medicalAidCardFileContext.fileUri === "";
+    };
+
+    return {
+
+        //functions
+        isFormValid,
+        medicalAidNameOptions,
+        filterData,
+        medicalAidRelationshipOptions,
+        isMedicalAidOptionsVisible, setIsMedicalAidOptionsVisible,
+        isMedicalAidRelationshipOptionsVisible, setIsMedicalAidRelationshipOptionsVisible,
+        medicalAidCardImageUri: !isMedicalAidCardImageEmpty() ? medicalAidCardFileContext.fileUri : "",
+        identityDocumentImageUri: !isIdentityDocumentImageEmpty() ? identityDocumentFileContext.fileUri : "",
+        medicalAidName, setMedicalAidName,
+        showNewMedicalAidAccountComplete, setShowNewMedicalAidAccountComplete,
+        onMedicalAidSchemeTermChange,
+        onUploadMedicalAidImageButtonPress,
+        onUploadIdentityDocumentButtonPress,
+        onSetupMedicalAidPress,
+        setIsMedicalAidSchemeOptionsVisible, isMedicalAidSchemeOptionsVisible,
+        getMedicalAidOptions,
+        medicalAidScheme, setMedicalAidScheme,
+        medicalAidSchemes,
+        selectedMedicalAidScheme, setSelectedMedicalAidScheme,
+        medicalAidSchemesFiltered,
+        onUploadMedicalAidImagePress, onUploadIdentityDocumentPress,
+
+        medicalAidPlan, setMedicalAidPlan,
+        selectedMedicalAidPlan, setSelectedMedicalAidPlan,
+        medicalAidPlansFiltered,
+        onMedicalAidPlanTermChange,
+        isMedicalAidPlanOptionsVisible, setIsMedicalAidPlanOptionsVisible,
+
+        //ref
+        medicalAidNameControlRef,
+        medicalAidPlanControlRef,
+        medicalAidNumberControlRef,
+        meicalAidRelationshipControlRef,
+        dependentControlRef
+    }
+}
+
+const styles = StyleSheet.create({
+
+    container: {
+        backgroundColor: White
+    },
+    containerChild: {
+        paddingTop: 24
+    },
+    rightItemStyle: {
+        height: 37,
+        width: 37,
+        backgroundColor: PrimaryScooter,
+        tintColor: White,
+        borderRadius: 37 / 2
+    },
+    navigationBar: {
+        backgroundColor: 'rgba(232, 247, 251, 1)',
+        backButtonColor: PrimaryScooter
+    },
+    formGroup: {
+        marginHorizontal: 30,
+        marginBottom: 17
+    },
+    fieldLabel: {
+        marginBottom: 9
+    },
+    textInput: {
+        backgroundColor: NeutralGrey,
+        elevation: 0
+    },
+    medicalAidCardImageUpload: {
+        width: 330,
+        height: 66,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: PrimaryScooter,
+        alignSelf: 'center',
+        marginBottom: 9
+    },
+    uploadButtonText: {
+        paddingTop: 21,
+        color: PrimaryScooter,
+        marginHorizontal: 10
+    },
+    addMedicalAidAccountbutton: {
+        marginRight: 30,
+        marginLeft: 30,
+        marginBottom: 17,
+        marginTop: 22,
+        backgroundColor: PrimaryScooter
+    },
+    medicalAidOptionsContainer: {
+        position: 'absolute',
+        backgroundColor: White,
+        width: '100%',
+        maxHeight: 250,
+        shadowColor: '#000000',
+        shadowRadius: 12,
+        shadowOffset: { height: 4, width: 0 },
+        shadowOpacity: 0.2,
+        alignSelf: 'center',
+        borderRadius: 12,
+        marginTop: 8,
+        elevation: 4,
+        top: '100%',
+        zIndex: 1
+    },
+    medicalAidOptionsFlatList: {
+    }
+})
+import { StackHeaderProps } from '@react-navigation/stack';
+import React, { useEffect } from 'react'
+import { View, StyleSheet } from 'react-native';
+import { ScrollView } from 'react-native-gesture-handler';
+import { PrimaryScooter, White } from '../../../Colors';
+import RoundedButton from '../../../components/button/RoundedButton';
+import CommonStackHeader from '../../../components/CommonStackHeader';
+import MedicalAccountInfomationCard from '../../../components/medicalAid/MedicalAidAccountInfomationCard';
+import { FileISOColor } from '../../../Images';
+import { Strings } from '../../../Strings';
+import { CalculateHeightFromDesigns, CalculateWidthFromDesigns } from '../../../Utils';
+import { AccountNavigationProp, AccountNavigationRouteProp, AccountRoutes as Routes } from './AccountStackParams';
+import useMedicalAidHooks from '../../../hooks/medical.aid.hooks';
+
+interface Props {
+    navigation: AccountNavigationProp<Routes.MedicalAidInfomation>,
+    route: AccountNavigationRouteProp<Routes.MedicalAidInfomation>
+}
+
+export default function MedicalAidInfomation(props: Props) {
+
+    const hooks = useMedicalAidHooks();
+
+    useEffect(() => {
+        const unsubscribe = props.navigation.addListener('focus', () => {
+            configureNavigationBar(props.navigation);
+        });
+
+        return unsubscribe;
+    });
+
+    const configureNavigationBar = (navigation: AccountNavigationProp<Routes.MedicalAidInfomation>) => {
+        navigation.setOptions({
+            title: Strings.Medical_Aid_Infomation,
+            header: (stackHeaderProps: StackHeaderProps) => {
+                return <CommonStackHeader {...stackHeaderProps}
+                    style={Object.assign({}, styles.navigationBar, stackHeaderProps.options.headerStyle)}
+                    rightItemImage={FileISOColor()}
+                    rightItemStyle={styles.navBarFolderIcon}
+                    onBackButtonPress={() => {
+                        if (stackHeaderProps.navigation.canGoBack()) {
+                            stackHeaderProps.navigation.goBack();
+                        } else {
+                            // navigation.goBack();
+                        }
+                    }}
+                />
+            }
+        });
+    }
+
+    return <ScrollView style={styles.container}>
+        <View >
+            <MedicalAccountInfomationCard></MedicalAccountInfomationCard>
+        </View>
+        <RoundedButton
+            style={styles.addNewMedicalAidAccountbutton}
+            titleColor={White}
+            title={Strings.Plus_add_new_medical_aid_account}
+            onPress={() => {
+                props.navigation.navigate(Routes.AddMedicalAidAccount);
+            }}
+        ></RoundedButton>
+
+
+    </ScrollView>
+
+}
+
+export function useMedicalAidInformationHooks() {
+    return {
+
+    }
+}
+
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: White
+    },
+    navigationBar: {
+        backgroundColor: 'rgba(232, 247, 251, 1)',
+        backButtonColor: PrimaryScooter
+    },
+    navBarFolderIcon: {
+        width: CalculateWidthFromDesigns(47),
+        height: CalculateHeightFromDesigns(47)
+    },
+    addNewMedicalAidAccountbutton: {
+
+        marginRight: 30,
+        marginLeft: 30,
+        marginBottom: 17,
+        marginTop: 22,
+        backgroundColor: PrimaryScooter
+    }
+})
+import React from 'react';
+import { Image, ModalProps, SafeAreaView, StyleSheet, View } from "react-native";
+import { PrimaryScooter, White } from '../../../Colors';
+import RoundedButton from '../../../components/button/RoundedButton';
+import CommonModal from '../../../components/common/CommonModal';
+import HeadingH4 from '../../../components/text/HeadingH4';
+import { CheckGreenOval, FilePlusRightClippedISOColor } from '../../../Images';
+import { Strings } from '../../../Strings';
+import { CalculateHeightFromDesigns, CalculateWidthFromDesigns } from '../../../Utils';
+import AccountNavigation from './AccountNavigation';
+import { AccountNavigationProp, AccountNavigationRouteProp, AccountRoutes as Routes } from './AccountStackParams';
+
+// interface Props {
+//     navigation: AccountNavigationProp<Routes.NewMedicalAidSetupComplete>,
+//     route: AccountNavigationRouteProp<Routes.NewMedicalAidSetupComplete>,
+// }
+interface Props extends ModalProps {
+    onGoBackButton: () => void;
+
+    navigation: AccountNavigationProp<Routes.NewMedicalAidSetupComplete>,
+    route: AccountNavigationRouteProp<Routes.NewMedicalAidSetupComplete>
+
+}
+
+export default function (props: Props) {
+    return <CommonModal style={styles.modal} {...props}>
+        <View style={styles.container}>
+
+            <View style={styles.imagesContainer}>
+                <Image style={styles.folderImage} source={FilePlusRightClippedISOColor()} />
+                <Image style={styles.checkImage} source={CheckGreenOval()} />
+            </View>
+            <HeadingH4 style={styles.SuccessText}>{Strings.new_medical_aid_setup_complete_title}</HeadingH4>
+
+            <RoundedButton
+                title={Strings.go_back_to_list}
+                titleColor={White} style={styles.GoBackToListButton}
+                onPress={() => {
+                    props.onGoBackButton();
+                }}
+            />
+
+        </View>
+    </CommonModal>
+
+}
+
+
+
+const styles = StyleSheet.create({
+    modal: {
+
+        top: CalculateHeightFromDesigns(50),
+        alignItems: 'center'
+    },
+    container: {
+        borderRadius: 20,
+        backgroundColor: White,
+        paddingHorizontal: 30,
+        paddingTop: 34,
+        paddingBottom: 29,
+        width: CalculateWidthFromDesigns(335)
+    },
+
+    CloseIcon: {
+        marginTop: 21,
+        marginRight: 23,
+        width: 37,
+        height: 37,
+        alignSelf: 'flex-end'
+    },
+    imagesContainer: {
+        width: CalculateWidthFromDesigns(197, 330),
+        height: CalculateHeightFromDesigns(359, 624),
+        maxWidth: 197,
+        maxHeight: 359,
+        marginLeft: 38
+    },
+    folderImage: {
+        resizeMode: 'contain',
+        flex: 1,
+        height: undefined,
+        width: undefined
+    },
+    checkImage: {
+        width: 72,
+        height: 72,
+        position: 'absolute',
+        right: '-5%',
+        bottom: '25%'
+    },
+    SuccessText: {
+        textAlign: 'right',
+        marginRight: 44
+    },
+    GoBackToListButton: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        backgroundColor: PrimaryScooter,
+        marginHorizontal: 32,
+        marginBottom: 34
+    }
+
+})
+
+
+
+
+import React from 'react';
+import { Image, SafeAreaView, StyleSheet, View } from "react-native";
+import { TouchableOpacity } from 'react-native-gesture-handler';
+import { PrimaryScooter, White } from '../../../Colors';
+import RoundedButton from '../../../components/button/RoundedButton';
+import HeadingH4 from '../../../components/text/HeadingH4';
+import { CloseIcon } from '../../../Icons';
+import { CheckGreenOval, FilePlusRightClippedISOColor } from '../../../Images';
+import { Strings } from '../../../Strings';
+import { CalculateHeightFromDesigns, CalculateWidthFromDesigns } from '../../../Utils';
+import { AccountNavigationProp, AccountNavigationRouteProp, AccountRoutes as Routes } from './AccountStackParams';
+
+interface Props {
+    navigation: AccountNavigationProp<Routes.NewMedicalAidSetupComplete>,
+    route: AccountNavigationRouteProp<Routes.NewMedicalAidSetupComplete>
+}
+
+export default function NewMedicalAidSetupComplete(props: Props) {
+
+    return <SafeAreaView style={{ flex: 1, backgroundColor: White }}>
+        <View style={styles.imagesContainer}>
+            <Image style={styles.folderImage} source={FilePlusRightClippedISOColor()} />
+            <Image style={styles.checkImage} source={CheckGreenOval()} />
+        </View>
+        <HeadingH4 style={styles.SuccessText}>{Strings.new_medical_aid_setup_complete_title}</HeadingH4>
+
+        <RoundedButton
+            title={Strings.go_back_to_list}
+            titleColor={White} style={styles.GoBackToListButton}
+            onPress={() => {
+                props.navigation.navigate(Routes.MedicalAidInfomation)
+            }}
+        />
+    </SafeAreaView>
+
+}
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+    },
+    CloseIcon: {
+        marginTop: 21,
+        marginRight: 23,
+        width: 37,
+        height: 37,
+        alignSelf: 'flex-end'
+    },
+    imagesContainer: {
+        width: CalculateWidthFromDesigns(197, 330),
+        height: CalculateHeightFromDesigns(359, 624),
+        maxWidth: 197,
+        maxHeight: 359,
+        marginLeft: 38
+    },
+    folderImage: {
+        resizeMode: 'contain',
+        flex: 1,
+        height: undefined,
+        width: undefined
+    },
+    checkImage: {
+        width: 72,
+        height: 72,
+        position: 'absolute',
+        right: '-5%',
+        bottom: '25%'
+    },
+    SuccessText: {
+        textAlign: 'right',
+import { MedicalAidsModel } from "../models/MedicalAidsModel";
+import { BaseService } from "./BaseService"
+
+class MedicalAidService extends BaseService {
+
+    async fetchMedicalAidSchemesAsync(): Promise<MedicalAidsModel> {
+        return this.httpGetAsync<MedicalAidsModel>('/medicalAids');
+    }
+
+    async searchMedicalAidSchemesAsync(searchTerm: string): Promise<MedicalAidsModel> {
+        var query = `?searchTerm=${searchTerm}`;
+
+        return this.httpGetAsync<MedicalAidsModel>(`/medicalAids${query}`);
+    }
+
+    async createMedicalAidInfo(
+        medicalAidId: string,
+        medicalAidPlanId: string,
+        medicalAidNumber: string,
+        relationship: string,
+        dependentCode: number,
+        medicalAidCardFileName: string,
+        medicalAidCardS3Bucket: string,
+        medicalAidCardS3ObjectKey: string,
+    ) {
+
+
+        //TODO: Create actual DTO model for thisimport React, { useState, useEffect } from 'react';
+import { Image, Platform, StyleSheet, View } from 'react-native';
+import { TouchableOpacity } from 'react-native-gesture-handler';
+import { NeutralBlack80, NeutralWhite100, NeutralWhite400, PrimaryScooterShade, PrimaryScooterTint, SecondaryGeraldineShade, SecondaryGeraldineTint, White } from '../../Colors';
+import { ChevronRight, Group } from '../../Icons';
+import { SampleDiscoveryLogo, SampleLogo } from '../../Images';
+import BodyMediumBold from '../text/BodyMediumBold';
+import BodyTiny from '../text/BodyTiny';
+import HeadingH6 from '../text/HeadingH6';
+
+
+export default function MedicalAccountInfomationCard() {
+
+    return <View style={styles.container}>
+        <View style={styles.headingTitle}>
+            <Image source={Group()} style={styles.groupIcon} />
+            <HeadingH6>Saved Medical Aids Accounts</HeadingH6>
+        </View>
+
+        <View style={styles.borderLine}></View>
+        <View style={styles.medicalAidCard}>
+            <Image source={SampleLogo()} style={styles.logo} />
+            <View style={styles.cardDetails}>
+                <BodyMediumBold style={styles.title}>{ }</BodyMediumBold>
+                <View style={styles.containerCard}>
+                    <View style={styles.planType}>
+                        <BodyTiny style={{ color: PrimaryScooterShade }}>Hospital Plan</BodyTiny>
+                    </View>
+                    <View style={styles.medicalAidNumber}>
+                        <BodyTiny style={{ color: SecondaryGeraldineShade }}>231DSAD32342</BodyTiny>
+                    </View>
+                </View>
+            </View>
+            <TouchableOpacity>
+                <Image source={ChevronRight()} style={styles.headingIcon} />
+            </TouchableOpacity>
+        </View>
+
+
+        <View style={styles.medicalAidCard}>
+            <Image source={SampleDiscoveryLogo()} style={styles.logo} />
+            <View style={styles.cardDetails}>
+                <BodyMediumBold style={styles.title}>Discovery</BodyMediumBold>
+                <View style={styles.containerCard}>
+                    <View style={styles.planType}>
+                        <BodyTiny style={{ color: PrimaryScooterShade }}>Maternity Benefit</BodyTiny>
+                    </View>
+                    <View style={styles.medicalAidNumber}>
+                        <BodyTiny style={{ color: SecondaryGeraldineShade }}>231DSAD32342</BodyTiny>
+                    </View>
+                </View>
+            </View>
+            <TouchableOpacity>
+                <Image source={ChevronRight()} style={styles.headingIcon} />
+            </TouchableOpacity>
+        </View>
+    </View>
+}
+
+
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        justifyContent: 'center',
+        paddingHorizontal: 19,
+    },
+    headingTitle: {
+        marginTop: 38,
+        marginBottom: 19,
+        alignItems: 'center',
+        flexDirection: 'row'
+    },
+    groupIcon: {
+        marginRight: 13,
+        width: 24,
+        height: 24
+    },
+    headingIcon: {
+        width: 8,
+        height: 13.29,
+        marginRight: 14,
+        color: NeutralBlack80
+    },
+    borderLine: {
+        width: '100%',
+        borderWidth: 0.4,
+        backgroundColor: '#F4F4FA',
+        marginBottom: 21
+    },
+    medicalAidCard: {
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: PrimaryScooterTint,
+        borderRadius: 20,
+        shadowColor: Platform.OS === 'ios' ? NeutralWhite100 : NeutralWhite400,
+        height: 84,
+        width: '100%',
+        marginBottom: 15,
+    },
+    logo: {
+        width: 72,
+        height: 49,
+        marginLeft: 18,
+        marginRight: 12,
+    },
+    containerCard: {
+        flexDirection: 'row',
+        marginLeft: 10,
+    },
+    cardDetails: {
+        justifyContent: 'center',
+        width: 192,
+        height: 60,
+        backgroundColor: White,
+        borderRadius: 12
+    },
+
+    title: {
+        marginLeft: 13,
+        marginBottom: 2
+    },
+    planType: {
+        borderRadius: 16,
+        backgroundColor: PrimaryScooterTint,
+        paddingHorizontal: 5,
+        marginRight: 3,
+
+    },
+    medicalAidNumber: {
+        width: undefined,
+        borderRadius: 16,
+        backgroundColor: SecondaryGeraldineTint,
+        paddingHorizontal: 5,
+        paddingTop: 1,
+    },
+
+
+
+})
+
+
+
+        return this.httpPostAsync<any>('/medicalAids/my/medicalAids', {
+            "medicalAidId": medicalAidId,
+            "medicalAidPlanId": medicalAidPlanId,
+            "medicalAidNumber": medicalAidNumber,
+            "relationship": relationship,
+            "dependantCode": dependentCode,
+            "medicalAidCardCopy": {
+                "fileName": medicalAidCardFileName,
+                "bucket": medicalAidCardS3Bucket,
+                "key": medicalAidCardS3ObjectKey
+            }
+        });
+
+    }
+}
+export const medicalAidService = new MedicalAidService();
+        marginRight: 44
+    },
+    GoBackToListButton: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        backgroundColor: PrimaryScooter,
+        marginHorizontal: 32,
+        marginBottom: 34
+    }
+})
+
+}
